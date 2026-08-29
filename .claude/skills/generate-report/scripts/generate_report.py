@@ -287,7 +287,11 @@ def main():
         raw = input("생성할 섹션의 수를 입력하세요 (기본값 3): ").strip()
         sections = int(raw) if raw else 3
 
-    load_dotenv()
+    # override=True: always trust the current .env over whatever is already in the
+    # process environment. Without it, a long-lived process (e.g. Flask's reloader,
+    # which restarts by inheriting the watcher's already-populated os.environ) keeps
+    # using the *first* value it ever loaded and silently ignores later .env edits.
+    load_dotenv(override=True)
     for var in ("OPENAI_API_KEY", "TAVILY_API_KEY"):
         if not os.environ.get(var):
             raise SystemExit(f"Missing {var} in the environment/.env file.")

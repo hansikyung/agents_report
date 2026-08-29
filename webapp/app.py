@@ -33,7 +33,10 @@ from langchain_core.messages import HumanMessage  # noqa: E402
 from langchain_openai import ChatOpenAI  # noqa: E402
 from openai import OpenAI  # noqa: E402
 
-load_dotenv(ROOT_DIR / ".env")
+# override=True: a long-lived dev server restarted by Werkzeug's reloader inherits
+# the watcher's already-populated os.environ, so a plain load_dotenv() would keep
+# using the *first* value it ever loaded and silently ignore later .env edits.
+load_dotenv(ROOT_DIR / ".env", override=True)
 
 app = Flask(__name__)
 OUTPUT_DIR = ROOT_DIR / "generated_reports"

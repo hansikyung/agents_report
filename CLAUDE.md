@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Single-notebook project: `03_다중_에이전트_다중_에이전트로_이미지가_포함된_리포트_자동화해보기.ipynb` is the source of truth. It's a LangGraph multi-agent pipeline — outline generator → content writer (Tavily search) → image generator (OpenAI `gpt-image-1`) → docx report writer (python-docx) — that loops over report sections and produces a Word document.
+Single-notebook project: `03_다중_에이전트_다중_에이전트로_이미지가_포함된_리포트_자동화해보기.ipynb` is the source of truth. It's a LangGraph multi-agent pipeline — outline generator → content writer (Tavily search) → image generator → docx report writer (python-docx) — that loops over report sections and produces a Word document. Image generation prefers Gemini (`gemini-3.1-flash-image`, via `GEMINI_API_KEY`/`GOOGLE_API_KEY`) and automatically falls back to OpenAI's `gpt-image-1` if Gemini isn't configured or the call fails — see `generate_image()` in `generate_report.py`.
 
 A reusable, non-interactive version of this pipeline lives in `.claude/skills/generate-report/scripts/generate_report.py` (invoked via the `/generate-report` skill, or standalone as an interactive CLI).
 
@@ -16,5 +16,6 @@ A reusable, non-interactive version of this pipeline lives in `.claude/skills/ge
 
 - The notebook installs dependencies inline via `!pip install` cells (langchain, langgraph, langchain-openai, langchain-community, chromadb, python-docx, etc.) — there is no requirements.txt/pyproject.toml for the notebook itself. `requirements.txt` at the repo root covers only what `generate_report.py` needs to run.
 - The notebook was written for Google Colab: it reads secrets via `google.colab.userdata.get(...)` and assumes `/content` as the working directory. Running it outside Colab requires swapping those for `.env`-based loading (`python-dotenv` + `os.environ`) and a local path — `generate_report.py` already does this.
-- `.env` holds API keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `DATABASE_URL`) — never commit it or print its contents. There is no git repo yet; add a `.gitignore` excluding `.env` before running `git init`.
-- `search_analysis.py` additionally needs `SERPER_API_KEY` (get one at serper.dev) — not currently in `.env`.
+- `.env` holds API keys (`OPENAI_API_KEY`, `GOOGLE_API_KEY`, `TAVILY_API_KEY`, `SERPER_API_KEY`) — never commit it or print its contents. There is no git repo yet; add a `.gitignore` excluding `.env` before running `git init`.
+- Every `load_dotenv()` call in this repo passes `override=True`. Without it, a long-lived process (the Flask dev server across Werkzeug reloader restarts, in particular) keeps whatever value it loaded on *first* start and silently ignores later edits to `.env` — a restart alone doesn't fix this since the reloader's child inherits the parent's already-populated environment. If `.env` values ever seem to not "take" while `webapp/app.py` is running, fully kill and relaunch the process rather than editing and waiting for autoreload.
+- Gemini image generation (`gemini-3.1-flash-image`) requires a billing-enabled Google AI/Cloud project — the free tier's quota for this model is 0 requests. A 429 `RESOURCE_EXHAUSTED` from it is expected on a free-tier key; the pipeline handles this automatically by falling back to OpenAI, so it's not a bug to chase.

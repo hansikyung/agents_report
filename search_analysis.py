@@ -119,7 +119,10 @@ def run(query: str, max_results: int = 5) -> Dict:
     Only TAVILY_API_KEY is required. Serper is optional — if its key isn't set,
     the search silently falls back to Tavily-only rather than failing.
     """
-    load_dotenv()
+    # override=True: always trust the current .env over whatever is already in the
+    # process environment (see generate_report.py's run() for why this matters for
+    # long-lived processes like the Flask app).
+    load_dotenv(override=True)
     tavily_key = os.environ.get("TAVILY_API_KEY")
     serper_key = os.environ.get("SERPER_API_KEY")
 
