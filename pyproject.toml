@@ -1,0 +1,24 @@
+[project]
+name = "agents-report"
+version = "0.1.0"
+requires-python = ">=3.12"
+# Kept in sync with requirements.txt (used for local `pip install -r requirements.txt`).
+# This list must stay complete: Vercel's uv-based installer prefers pyproject.toml over
+# requirements.txt whenever both exist, so an incomplete list here means Vercel installs
+# nothing from requirements.txt and the deploy fails at runtime with missing imports.
+dependencies = [
+    "langgraph",
+    "langchain",
+    "langchain-openai",
+    "langchain-community",
+    "python-dotenv",
+    "python-docx",
+    "openai",
+    "requests",
+    "pydantic",
+    "flask",
+    "google-genai",
+]
+
+[tool.vercel]
+entrypoint = "webapp.app:app"

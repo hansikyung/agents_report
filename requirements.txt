@@ -1,5 +1,7 @@
 # Runtime dependencies for .claude/skills/generate-report/scripts/generate_report.py
 # and the webapp/ Flask front end.
+# Kept in sync with pyproject.toml's [project.dependencies] (Vercel's build uses that
+# one; this file is for local `pip install -r requirements.txt`).
 langgraph
 langchain
 langchain-openai
