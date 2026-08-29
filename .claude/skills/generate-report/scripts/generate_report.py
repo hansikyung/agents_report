@@ -20,9 +20,8 @@ import base64
 import os
 import uuid
 from io import BytesIO
-from typing import Annotated, Dict, List, Sequence, TypedDict
+from typing import Annotated, Dict, List, Optional, Sequence, TypedDict
 
-import requests
 from dotenv import load_dotenv
 from langchain_community.tools.tavily_search import TavilySearchResults
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -44,7 +43,9 @@ class State(TypedDict):
     image_prompt: str
     total_sections: int
     full_report: List[Dict[str, str]]
-    report_file: str
+    report_file: Optional[str]
+    report_bytes: bytes
+    report_name: str
 
 
 def create_outline_model(section_count: int):
@@ -55,7 +56,20 @@ def create_outline_model(section_count: int):
     return create_model("DynamicOutline", **fields)
 
 
-def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: OpenAI, output_dir: str):
+def build_graph(
+    llm: ChatOpenAI,
+    search: TavilySearchResults,
+    openai_client: OpenAI,
+    output_dir: Optional[str] = None,
+):
+    """Build the report-generation graph.
+
+    output_dir=None (the default) runs fully in-memory: images and the final .docx
+    exist only as bytes in the returned state (report_bytes / no on-disk image files)
+    — this is what a serverless deployment needs, since Vercel's filesystem is
+    read-only outside /tmp and nothing written to disk survives past the request.
+    Pass a real output_dir for local/CLI use to also persist files to disk as before.
+    """
     def outline_generator(state: State):
         outline_model = create_outline_model(state["total_sections"])
         outline_parser = JsonOutputParser(pydantic_object=outline_model)
@@ -146,8 +160,8 @@ def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: Ope
         )
         return base64.b64decode(response.data[0].b64_json)
 
-    def generate_image(prompt: str) -> str:
-        """Generate an image and save it locally, returning the file path.
+    def generate_image(prompt: str) -> bytes:
+        """Generate an image and return its raw PNG bytes (never touches disk itself).
 
         Prefers Gemini (gemini-3.1-flash-image) when GEMINI_API_KEY/GOOGLE_API_KEY is set,
         falling back to OpenAI's gpt-image-1 if Gemini isn't configured or the call fails
@@ -166,11 +180,7 @@ def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: Ope
             image_bytes = generate_image_openai(prompt)
             print("Image generated with OpenAI (gpt-image-1).", flush=True)
 
-        os.makedirs(output_dir, exist_ok=True)
-        image_path = os.path.join(output_dir, f"{uuid.uuid4()}.png")
-        with open(image_path, "wb") as f:
-            f.write(image_bytes)
-        return image_path
+        return image_bytes
 
     def image_generator(state: State):
         prompt_template = PromptTemplate(
@@ -187,16 +197,23 @@ def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: Ope
         image_prompt = llm.invoke(prompt_template.format(section_content=state["section_content"]))
         image_prompt_text = image_prompt.content if isinstance(image_prompt, AIMessage) else str(image_prompt)
 
+        image_bytes = None
+        image_path = None
         try:
-            image_path = generate_image(image_prompt_text)
+            image_bytes = generate_image(image_prompt_text)
+            if output_dir is not None:
+                os.makedirs(output_dir, exist_ok=True)
+                image_path = os.path.join(output_dir, f"{uuid.uuid4()}.png")
+                with open(image_path, "wb") as f:
+                    f.write(image_bytes)
         except Exception as exc:  # keep the pipeline going even if image generation fails
             print(f"Image generation failed: {exc}", flush=True)
-            image_path = "Image generation failed"
 
         current_section = {
             "title": state["outline"][f"section{state['current_section']}"],
             "content": state["section_content"],
-            "image_url": image_path,
+            "image_url": image_path,  # local file path, only set when output_dir was given
+            "image_bytes": image_bytes,  # raw bytes, always set on success — used to embed in the docx
             "image_prompt": image_prompt_text,
         }
         updated_full_report = state.get("full_report", []) + [current_section]
@@ -205,7 +222,7 @@ def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: Ope
 
         return {
             "image_prompt": image_prompt_text,
-            "section_image": image_path,
+            "section_image": image_path or "",
             "current_section": state["current_section"] + 1,
             "full_report": updated_full_report,
         }
@@ -221,27 +238,34 @@ def build_graph(llm: ChatOpenAI, search: TavilySearchResults, openai_client: Ope
             doc.add_heading(section["title"], level=1)
             doc.add_paragraph(section["content"])
 
-            if section["image_url"] != "Image generation failed":
+            if section.get("image_bytes"):
                 try:
-                    if section["image_url"].startswith("http"):
-                        response = requests.get(section["image_url"])
-                        image = BytesIO(response.content)
-                    else:
-                        image = section["image_url"]  # local file path
-                    doc.add_picture(image, width=Inches(6))
+                    doc.add_picture(BytesIO(section["image_bytes"]), width=Inches(6))
                     doc.add_paragraph(f"Image prompt: {section['image_prompt']}")
                 except Exception as e:
                     doc.add_paragraph(f"Failed to add image: {str(e)}")
 
             doc.add_page_break()
 
+        buffer = BytesIO()
+        doc.save(buffer)
+        report_bytes = buffer.getvalue()
+
         safe_topic = "".join(c for c in state["messages"][0].content if c.isalnum() or c in " _-").strip()
-        filename = os.path.join(output_dir, f"report_{safe_topic}.docx".replace(" ", "_"))
-        doc.save(filename)
+        report_name = f"report_{safe_topic}.docx".replace(" ", "_")
+
+        filename = None
+        if output_dir is not None:
+            os.makedirs(output_dir, exist_ok=True)
+            filename = os.path.join(output_dir, report_name)
+            with open(filename, "wb") as f:
+                f.write(report_bytes)
 
         return {
-            "messages": [AIMessage(content=f"Report finalized and saved as {filename}.")],
+            "messages": [AIMessage(content=f"Report finalized{f' and saved as {filename}' if filename else ''}.")],
             "report_file": filename,
+            "report_bytes": report_bytes,
+            "report_name": report_name,
         }
 
     def should_continue_writing(state: State):

@@ -23,8 +23,7 @@ const PALETTE = [
   { border: "border-sky", chip: "bg-sky" },
 ];
 
-let pollTimer = null;
-let renderedCount = 0;
+let lastDownloadUrl = null;
 
 function clampSections(value) {
   const n = parseInt(value, 10);
@@ -54,15 +53,22 @@ function clearError() {
   formError.textContent = "";
 }
 
-function resetForNewRun() {
+function resetForNewRun(sections) {
   clearError();
-  renderedCount = 0;
   results.innerHTML = "";
   results.classList.add("hidden");
   downloadSection.classList.add("hidden");
+  if (lastDownloadUrl) {
+    URL.revokeObjectURL(lastDownloadUrl);
+    lastDownloadUrl = null;
+  }
   progressSection.classList.remove("hidden");
-  progressBar.style.width = "5%";
-  progressLabel.textContent = "에이전트 팀을 소집하는 중...";
+  // The whole report now generates in a single request (no per-section polling —
+  // that requires state shared across requests, which a serverless deployment
+  // can't provide), so this is an indeterminate "still working" indicator rather
+  // than a real percentage.
+  progressBar.style.width = "100%";
+  progressLabel.textContent = `${sections}개 섹션 보고서를 작성하는 중입니다... (몇 분 정도 걸릴 수 있어요)`;
   submitBtn.disabled = true;
 }
 
@@ -70,15 +76,14 @@ function renderSections(sections) {
   if (!sections || sections.length === 0) return;
   results.classList.remove("hidden");
 
-  for (let i = renderedCount; i < sections.length; i++) {
-    const section = sections[i];
+  sections.forEach((section, i) => {
     const colors = PALETTE[i % PALETTE.length];
 
     const card = document.createElement("article");
     card.className = `section-card bg-white border-4 border-ink ${colors.border} rounded-3xl shadow-pop-sm p-6`;
 
-    const imageHtml = section.image
-      ? `<img src="/api/image/${section.image}" alt="${section.title}"
+    const imageHtml = section.image_base64
+      ? `<img src="data:image/png;base64,${section.image_base64}" alt="${section.title}"
              class="w-full sm:w-48 h-48 object-cover rounded-2xl border-4 border-ink shrink-0" />`
       : `<div class="w-full sm:w-48 h-48 flex items-center justify-center rounded-2xl border-4 border-ink
                      bg-cream text-ink/40 font-display font-semibold shrink-0">이미지 없음</div>`;
@@ -96,58 +101,25 @@ function renderSections(sections) {
       </div>
     `;
     results.appendChild(card);
-  }
-  renderedCount = sections.length;
+  });
 }
 
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
+// Turns the base64 .docx the server returned into a downloadable blob: URL —
+// no second request, so this works the same whether the server wrote nothing
+// to disk (serverless) or could have (local dev).
+function setDownload(reportBase64, filename) {
+  const byteChars = atob(reportBase64);
+  const byteNumbers = new Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) {
+    byteNumbers[i] = byteChars.charCodeAt(i);
   }
-}
-
-async function pollStatus(jobId) {
-  try {
-    const res = await fetch(`/api/status/${jobId}`);
-    const job = await res.json();
-
-    if (!res.ok) {
-      stopPolling();
-      progressLabel.textContent = "오류가 발생했어요";
-      showError(job.error || "상태를 확인할 수 없습니다.");
-      submitBtn.disabled = false;
-      return;
-    }
-
-    const total = job.total_sections || 1;
-    const done = job.sections ? job.sections.length : 0;
-    const pct = Math.max(5, Math.min(100, Math.round((done / total) * 100)));
-    progressBar.style.width = `${pct}%`;
-
-    renderSections(job.sections);
-
-    if (job.status === "running") {
-      progressLabel.textContent = `${Math.min(job.current_section, total)} / ${total} 섹션 작성 중...`;
-    } else if (job.status === "done") {
-      stopPolling();
-      progressBar.style.width = "100%";
-      progressLabel.textContent = "완성! 🎉";
-      downloadLink.href = `/api/download/${jobId}`;
-      downloadSection.classList.remove("hidden");
-      submitBtn.disabled = false;
-    } else if (job.status === "error") {
-      stopPolling();
-      progressLabel.textContent = "오류가 발생했어요";
-      showError(job.error || "보고서 생성 중 오류가 발생했습니다.");
-      submitBtn.disabled = false;
-    }
-  } catch (err) {
-    stopPolling();
-    progressLabel.textContent = "오류가 발생했어요";
-    showError("서버에 연결할 수 없습니다.");
-    submitBtn.disabled = false;
-  }
+  const blob = new Blob([new Uint8Array(byteNumbers)], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
+  lastDownloadUrl = URL.createObjectURL(blob);
+  downloadLink.href = lastDownloadUrl;
+  downloadLink.download = filename || "report.docx";
+  downloadSection.classList.remove("hidden");
 }
 
 form.addEventListener("submit", async (event) => {
@@ -161,7 +133,7 @@ form.addEventListener("submit", async (event) => {
     return;
   }
 
-  resetForNewRun();
+  resetForNewRun(sections);
 
   try {
     const res = await fetch("/api/generate", {
@@ -173,17 +145,17 @@ form.addEventListener("submit", async (event) => {
 
     if (!res.ok) {
       progressSection.classList.add("hidden");
-      submitBtn.disabled = false;
       showError(data.error || "요청을 처리할 수 없습니다.");
       return;
     }
 
-    stopPolling();
-    pollTimer = setInterval(() => pollStatus(data.job_id), 1500);
-    pollStatus(data.job_id);
+    progressSection.classList.add("hidden");
+    renderSections(data.sections);
+    setDownload(data.report_base64, data.filename);
   } catch (err) {
     progressSection.classList.add("hidden");
-    submitBtn.disabled = false;
     showError("서버에 연결할 수 없습니다.");
+  } finally {
+    submitBtn.disabled = false;
   }
 });

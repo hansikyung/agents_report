@@ -1,1 +1,7 @@
-.env __pycache__/ generated_reports/ 
+.env
+.env.local
+.env.*.local
+__pycache__/
+*.pyc
+.vercel
+node_modules/
