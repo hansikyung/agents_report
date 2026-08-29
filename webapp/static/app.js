@@ -141,7 +141,23 @@ form.addEventListener("submit", async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topic, sections }),
     });
-    const data = await res.json();
+
+    // A serverless timeout (504) or gateway error comes back as an HTML page, not
+    // JSON — detect that before trying to parse it, so the message stays useful.
+    if (res.status === 504) {
+      progressSection.classList.add("hidden");
+      showError("요청 시간이 너무 오래 걸려 시간 초과되었습니다. 섹션 수를 줄여서 다시 시도해 주세요.");
+      return;
+    }
+
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      progressSection.classList.add("hidden");
+      showError(`서버 응답을 처리할 수 없습니다 (HTTP ${res.status}).`);
+      return;
+    }
 
     if (!res.ok) {
       progressSection.classList.add("hidden");
