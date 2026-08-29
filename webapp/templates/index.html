@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}AI 리포트 스튜디오{% endblock %}
+
+{% block content %}
+    <!-- Header -->
+    <header class="text-center mb-12">
+      <div class="inline-block bg-violet border-4 border-ink rounded-2xl px-6 py-2 shadow-pop -rotate-2 mb-6">
+        <span class="font-display font-semibold text-white text-sm tracking-wide">MULTI-AGENT REPORT PIPELINE</span>
+      </div>
+      <h1 class="font-display font-bold text-5xl sm:text-6xl leading-tight">
+        AI <span class="text-pink">리포트</span> 스튜디오
+      </h1>
+      <p class="mt-4 text-lg text-ink/70 max-w-xl mx-auto">
+        주제를 입력하면 4명의 AI 에이전트가 검색하고, 글을 쓰고, 그림을 그려서<br class="hidden sm:block" />
+        워드 보고서를 완성해 드려요.
+      </p>
+    </header>
+
+    <!-- Input card -->
+    <section class="bg-white border-4 border-ink rounded-3xl shadow-pop p-8 sm:p-10">
+      <form id="report-form" class="space-y-6">
+        <div>
+          <label for="topic" class="font-display font-semibold text-sm uppercase tracking-wide text-ink/80">
+            📌 보고서 주제
+          </label>
+          <input
+            id="topic" name="topic" type="text" required placeholder="예: 피지컬 AI"
+            class="mt-2 w-full rounded-xl border-4 border-ink px-4 py-3 text-lg font-body
+                   focus:outline-none focus:ring-4 focus:ring-yellow placeholder:text-ink/30"
+          />
+        </div>
+
+        <div>
+          <label for="sections" class="font-display font-semibold text-sm uppercase tracking-wide text-ink/80">
+            🧩 섹션 수 (1~10)
+          </label>
+          <div class="mt-2 flex items-center gap-3">
+            <button type="button" id="section-minus" aria-label="섹션 수 줄이기"
+              class="w-12 h-12 shrink-0 rounded-xl border-4 border-ink bg-teal font-display font-bold text-xl
+                     shadow-pop-sm active:translate-x-1 active:translate-y-1 active:shadow-none transition">−</button>
+            <input id="sections" name="sections" type="number" min="1" max="10" value="3"
+              class="w-20 text-center rounded-xl border-4 border-ink px-2 py-3 text-lg font-body" />
+            <button type="button" id="section-plus" aria-label="섹션 수 늘리기"
+              class="w-12 h-12 shrink-0 rounded-xl border-4 border-ink bg-orange font-display font-bold text-xl
+                     shadow-pop-sm active:translate-x-1 active:translate-y-1 active:shadow-none transition">+</button>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn"
+          class="w-full sm:w-auto font-display font-bold text-lg text-white bg-pink border-4 border-ink
+                 rounded-2xl px-8 py-4 shadow-pop hover:bg-violet active:translate-x-1 active:translate-y-1
+                 active:shadow-none transition disabled:opacity-50 disabled:cursor-not-allowed">
+          보고서 만들기 ✨
+        </button>
+
+        <p id="form-error" class="hidden text-pink font-display font-semibold"></p>
+      </form>
+    </section>
+
+    <!-- Progress -->
+    <section id="progress-section" class="hidden mt-10 bg-white border-4 border-ink rounded-3xl shadow-pop p-8">
+      <div class="flex items-center justify-between mb-4">
+        <p class="font-display font-semibold text-lg" id="progress-label">준비 중...</p>
+        <div class="w-8 h-8 border-4 border-ink border-t-transparent rounded-sm animate-spin bg-yellow"></div>
+      </div>
+      <div class="w-full h-8 rounded-full border-4 border-ink bg-cream overflow-hidden">
+        <div id="progress-bar" class="h-full stripe-bar transition-all duration-500" style="width: 5%"></div>
+      </div>
+    </section>
+
+    <!-- Results -->
+    <section id="results" class="hidden mt-10 space-y-6"></section>
+
+    <!-- Download -->
+    <section id="download-section" class="hidden mt-10 text-center">
+      <a id="download-link" href="#"
+        class="inline-block font-display font-bold text-lg text-ink bg-yellow border-4 border-ink
+               rounded-2xl px-8 py-4 shadow-pop hover:bg-teal active:translate-x-1 active:translate-y-1
+               active:shadow-none transition">
+        📄 보고서 다운로드
+      </a>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+{% endblock %}

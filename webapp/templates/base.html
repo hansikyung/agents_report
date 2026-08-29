@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>{% block title %}AI 리포트 스튜디오{% endblock %}</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: "#16161A",
+          cream: "#FDF6EC",
+          violet: "#6C5CE7",
+          pink: "#FF3D81",
+          teal: "#00C2A8",
+          yellow: "#FFD23F",
+          orange: "#FF6B35",
+          sky: "#4EA8DE",
+        },
+        fontFamily: {
+          display: ["Fredoka", "sans-serif"],
+          body: ["Space Grotesk", "sans-serif"],
+        },
+        boxShadow: {
+          pop: "8px 8px 0 0 #16161A",
+          "pop-sm": "4px 4px 0 0 #16161A",
+        },
+      },
+    },
+  };
+</script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+{% block head %}{% endblock %}
+</head>
+<body class="bg-cream text-ink font-body min-h-screen relative overflow-x-hidden">
+
+  <!-- Memphis decorative shapes (behind everything) -->
+  <div class="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+    <div class="absolute -top-10 -left-10 w-40 h-40 rounded-full bg-yellow border-4 border-ink"></div>
+    <div class="absolute top-24 right-[6%] w-24 h-24 bg-pink border-4 border-ink rotate-12"></div>
+    <div class="absolute bottom-10 left-[8%] w-28 h-28 rounded-full bg-teal border-4 border-ink"></div>
+    <div class="absolute bottom-[20%] right-[4%] w-16 h-16 bg-violet border-4 border-ink rotate-45"></div>
+    <svg class="absolute top-[40%] left-[2%] w-24 h-24 text-orange" viewBox="0 0 100 100" fill="none">
+      <path d="M5 50 Q 25 10, 45 50 T 85 50" stroke="currentColor" stroke-width="8" stroke-linecap="round"/>
+    </svg>
+    <svg class="absolute top-[5%] left-[45%] w-16 h-16 text-sky" viewBox="0 0 100 100" fill="none">
+      <path d="M50 5 L61 39 L97 39 L68 61 L79 95 L50 73 L21 95 L32 61 L3 39 L39 39 Z" fill="currentColor" stroke="#16161A" stroke-width="4"/>
+    </svg>
+    <div class="absolute top-[55%] right-[15%] grid grid-cols-3 gap-2">
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+      <span class="w-3 h-3 rounded-full bg-ink"></span>
+    </div>
+  </div>
+
+  <main class="relative z-10 max-w-4xl mx-auto px-6 py-14">
+
+    <nav class="flex justify-center gap-3 mb-10 flex-wrap">
+      <a href="/"
+        class="font-display font-semibold text-sm px-5 py-2 rounded-xl border-4 border-ink shadow-pop-sm transition
+               {{ 'bg-yellow' if active_page == 'report' else 'bg-white hover:bg-cream' }}">
+        📄 리포트 생성
+      </a>
+      <a href="/search"
+        class="font-display font-semibold text-sm px-5 py-2 rounded-xl border-4 border-ink shadow-pop-sm transition
+               {{ 'bg-yellow' if active_page == 'search' else 'bg-white hover:bg-cream' }}">
+        🔍 검색 분석
+      </a>
+    </nav>
+
+    {% block content %}{% endblock %}
+
+    <footer class="text-center mt-16 text-sm text-ink/50 font-body">
+      LangGraph 멀티 에이전트 파이프라인 · Flask + Tailwind
+    </footer>
+  </main>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

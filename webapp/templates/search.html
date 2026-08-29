@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}검색 분석 스튜디오{% endblock %}
+
+{% block content %}
+    <!-- Header -->
+    <header class="text-center mb-12">
+      <div class="inline-block bg-teal border-4 border-ink rounded-2xl px-6 py-2 shadow-pop rotate-2 mb-6">
+        <span class="font-display font-semibold text-white text-sm tracking-wide">TAVILY × SERPER SEARCH ANALYSIS</span>
+      </div>
+      <h1 class="font-display font-bold text-5xl sm:text-6xl leading-tight">
+        검색 <span class="text-teal">분석</span> 스튜디오
+      </h1>
+      <p class="mt-4 text-lg text-ink/70 max-w-xl mx-auto">
+        검색어를 입력하면 Tavily와 Serper(Google) 두 검색 API의 결과를 나란히 가져와서<br class="hidden sm:block" />
+        도메인 분포와 핵심 키워드를 비교 분석해요.
+      </p>
+    </header>
+
+    <!-- Input card -->
+    <section class="bg-white border-4 border-ink rounded-3xl shadow-pop p-8 sm:p-10">
+      <form id="search-form" class="space-y-6">
+        <div>
+          <label for="query" class="font-display font-semibold text-sm uppercase tracking-wide text-ink/80">
+            🔍 검색어
+          </label>
+          <input
+            id="query" name="query" type="text" required placeholder="예: 피지컬 AI"
+            class="mt-2 w-full rounded-xl border-4 border-ink px-4 py-3 text-lg font-body
+                   focus:outline-none focus:ring-4 focus:ring-yellow placeholder:text-ink/30"
+          />
+        </div>
+
+        <div>
+          <label for="max-results" class="font-display font-semibold text-sm uppercase tracking-wide text-ink/80">
+            🧮 API당 결과 수 (1~10)
+          </label>
+          <div class="mt-2 flex items-center gap-3">
+            <button type="button" id="max-results-minus" aria-label="결과 수 줄이기"
+              class="w-12 h-12 shrink-0 rounded-xl border-4 border-ink bg-teal font-display font-bold text-xl
+                     shadow-pop-sm active:translate-x-1 active:translate-y-1 active:shadow-none transition">−</button>
+            <input id="max-results" name="max_results" type="number" min="1" max="10" value="5"
+              class="w-20 text-center rounded-xl border-4 border-ink px-2 py-3 text-lg font-body" />
+            <button type="button" id="max-results-plus" aria-label="결과 수 늘리기"
+              class="w-12 h-12 shrink-0 rounded-xl border-4 border-ink bg-orange font-display font-bold text-xl
+                     shadow-pop-sm active:translate-x-1 active:translate-y-1 active:shadow-none transition">+</button>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-btn"
+          class="w-full sm:w-auto font-display font-bold text-lg text-white bg-teal border-4 border-ink
+                 rounded-2xl px-8 py-4 shadow-pop hover:bg-violet active:translate-x-1 active:translate-y-1
+                 active:shadow-none transition disabled:opacity-50 disabled:cursor-not-allowed">
+          검색 &amp; 분석하기 🔎
+        </button>
+
+        <p id="form-error" class="hidden text-pink font-display font-semibold"></p>
+      </form>
+    </section>
+
+    <!-- Loading -->
+    <section id="loading-section" class="hidden mt-10 bg-white border-4 border-ink rounded-3xl shadow-pop p-8">
+      <div class="flex items-center justify-center gap-4">
+        <div class="w-8 h-8 border-4 border-ink border-t-transparent rounded-sm animate-spin bg-yellow"></div>
+        <p class="font-display font-semibold text-lg">두 API에서 검색 중...</p>
+      </div>
+    </section>
+
+    <!-- Raw results, side by side -->
+    <section id="raw-results" class="hidden mt-10 grid sm:grid-cols-2 gap-6">
+      <div class="bg-white border-4 border-violet rounded-3xl shadow-pop-sm p-6">
+        <h2 class="font-display font-bold text-xl mb-4 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-violet border-2 border-ink"></span> Tavily 결과
+        </h2>
+        <div id="tavily-list" class="space-y-4"></div>
+      </div>
+      <div class="bg-white border-4 border-pink rounded-3xl shadow-pop-sm p-6">
+        <h2 class="font-display font-bold text-xl mb-4 flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-pink border-2 border-ink"></span> Serper 결과
+        </h2>
+        <div id="serper-list" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- Analysis -->
+    <section id="analysis-section" class="hidden mt-10 bg-white border-4 border-ink rounded-3xl shadow-pop p-8 space-y-10">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <h2 class="font-display font-bold text-2xl">📊 비교 분석</h2>
+        <button type="button" id="view-toggle"
+          class="font-display font-semibold text-sm px-4 py-2 rounded-xl border-4 border-ink bg-yellow
+                 shadow-pop-sm active:translate-x-1 active:translate-y-1 active:shadow-none transition">
+          📋 표로 보기
+        </button>
+      </div>
+
+      <div>
+        <h3 class="font-display font-semibold text-sm uppercase tracking-wide text-ink/60 mb-3">
+          두 API 모두에 등장한 도메인
+        </h3>
+        <div id="overlap-chips" class="flex flex-wrap gap-2"></div>
+      </div>
+
+      <div>
+        <h3 class="font-display font-semibold text-sm uppercase tracking-wide text-ink/60 mb-4">
+          도메인 빈도 Top 10
+        </h3>
+        <div id="domain-chart"></div>
+      </div>
+
+      <div>
+        <h3 class="font-display font-semibold text-sm uppercase tracking-wide text-ink/60 mb-4">
+          핵심 키워드 빈도 Top 15
+        </h3>
+        <div id="keyword-chart"></div>
+      </div>
+    </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{{ url_for('static', filename='search.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,13 @@
+# Runtime dependencies for .claude/skills/generate-report/scripts/generate_report.py
+# and the webapp/ Flask front end.
+langgraph
+langchain
+langchain-openai
+langchain-community
+python-dotenv
+python-docx
+openai
+requests
+pydantic
+flask
+google-genai
